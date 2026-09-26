@@ -109,6 +109,42 @@ export const settingsHandler = {
     await this.showSettings(ctx);
   },
 
+  // Confirm reset to default
+  async confirmResetDefault(ctx) {
+    await ctx.answerCbQuery();
+    const buttons = Markup.inlineKeyboard([
+      [
+        Markup.button.callback('⚠️ Ya, Muat Ulang Jadwal Default', 'do_reset_default')
+      ],
+      [
+        Markup.button.callback('❌ Batal', 'cancel_action')
+      ]
+    ]);
+
+    await ctx.editMessageText(
+      `⚠️ <b>Konfirmasi Muat Jadwal Default</b>\n\n` +
+      `Tindakan ini akan mengganti seluruh jadwal Anda dengan <b>Jadwal Kuliah Default (Teknik Elektro)</b>:\n` +
+      `• Fisika Dasar I (Senin)\n` +
+      `• Material Teknik Elektro (Senin)\n` +
+      `• Kimia Dasar (Selasa)\n` +
+      `• Pengantar TIK & Rangkaian Listrik I (Rabu)\n` +
+      `• Matematika Diskrit (Kamis)\n` +
+      `• Kalkulus I & Praktikum Rangkaian Listrik (Jumat)\n\n` +
+      `Apakah Anda yakin?`,
+      { parse_mode: 'HTML', ...buttons }
+    );
+  },
+
+  // Execute reset to default
+  async executeResetDefault(ctx) {
+    await ctx.answerCbQuery('Jadwal berhasil di-reset!');
+    scheduleRepo.resetToDefaultSchedules(ctx.chat.id);
+    await ctx.editMessageText(
+      `✅ <b>Jadwal kuliah default berhasil dimuat!</b>\n\nSilakan tekan menu <b>📋 Semua Jadwal</b> untuk melihat daftar lengkapnya.`,
+      { parse_mode: 'HTML' }
+    );
+  },
+
   // Handle custom text input for settings
   async processStep(ctx, text) {
     const session = ctx.session;

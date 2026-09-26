@@ -33,18 +33,39 @@ bot.use((ctx, next) => {
 bot.start(async (ctx) => {
   ctx.session = null;
   const name = ctx.from?.first_name || 'Teman';
+
+  // Automatically seed default schedules if user has none
+  const existingSchedules = scheduleRepo.getAllSchedules(ctx.chat.id);
+  let seededNote = '';
+  if (existingSchedules.length === 0) {
+    scheduleRepo.seedDefaultSchedules(ctx.chat.id);
+    seededNote = `\n\n📌 <i>Jadwal perkuliahan default Anda telah otomatis dimuat ke akun ini! Tekan tombol "📋 Semua Jadwal" untuk melihatnya.</i>`;
+  }
+
   const welcomeText = `👋 <b>Halo, ${name}!</b>\n\n` +
     `Selamat datang di <b>Bot Pengingat Jadwal Kuliah</b> 🎓\n\n` +
     `Bot ini siap membantu kamu:\n` +
     `• Mengingatkan jadwal kuliah setiap pagi secara otomatis 🌅\n` +
     `• Memberikan alarm 15 menit sebelum kelas dimulai 🔔\n` +
-    `• Mengelola jadwal kuliah (Tambah, Edit, Hapus, Lihat) 📋\n\n` +
+    `• Mengelola jadwal kuliah (Tambah, Edit, Hapus, Lihat) 📋\n` +
+    seededNote + `\n\n` +
     `Silakan gunakan tombol menu di bawah atau ketik /help untuk melihat panduan!`;
 
   await ctx.reply(welcomeText, {
     parse_mode: 'HTML',
     ...keyboards.mainMenu()
   });
+});
+
+// Command: /reset_default
+bot.command('reset_default', async (ctx) => {
+  ctx.session = null;
+  scheduleRepo.resetToDefaultSchedules(ctx.chat.id);
+  await ctx.reply(
+    `🔄 <b>Jadwal perkuliahan Anda berhasil di-reset ke jadwal default!</b>\n\n` +
+    `Gunakan menu <b>📋 Semua Jadwal</b> atau ketik /jadwal untuk melihatnya.`,
+    { parse_mode: 'HTML', ...keyboards.mainMenu() }
+  );
 });
 
 // Command: /help
@@ -58,6 +79,7 @@ bot.help(async (ctx) => {
     `• /edit - Ubah data jadwal yang sudah ada\n` +
     `• /hapus - Hapus jadwal kuliah\n` +
     `• /pengaturan - Atur alarm & pengingat harian\n` +
+    `• /reset_default - Muat ulang / reset ke jadwal perkuliahan default\n` +
     `• /batal - Batalkan operasi input yang sedang berjalan\n\n` +
     `💡 <i>Tips: Kamu juga bisa langsung menekan tombol menu di keyboard bawah!</i>`;
 
@@ -154,6 +176,8 @@ bot.action('set_morning_time', (ctx) => settingsHandler.promptMorningTime(ctx));
 bot.action(/^morning_time_preset:(.+)$/, (ctx) => settingsHandler.applyMorningTimePreset(ctx, ctx.match[1]));
 bot.action('set_preclass_mins', (ctx) => settingsHandler.promptPreClassMins(ctx));
 bot.action(/^preclass_preset:(\d+)$/, (ctx) => settingsHandler.applyPreClassPreset(ctx, ctx.match[1]));
+bot.action('confirm_reset_default', (ctx) => settingsHandler.confirmResetDefault(ctx));
+bot.action('do_reset_default', (ctx) => settingsHandler.executeResetDefault(ctx));
 bot.action('close_settings', async (ctx) => {
   await ctx.answerCbQuery();
   try {

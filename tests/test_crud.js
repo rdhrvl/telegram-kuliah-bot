@@ -18,7 +18,7 @@ import {
 
 console.log('🧪 Menjalankan pengujian otomatis untuk Bot Kuliah...\n');
 
-const TEST_CHAT_ID = 'test_user_12345';
+const TEST_CHAT_ID = 'test_user_' + Date.now();
 
 // 1. Test DateTime Utils
 console.log('1. Menguji fungsi waktu & parsing...');
@@ -159,5 +159,28 @@ console.log('   ✅ Formatter lolos uji.');
 // Cleanup test data
 scheduleRepo.deleteSchedule(id1, TEST_CHAT_ID);
 scheduleRepo.deleteSchedule(id3, TEST_CHAT_ID);
+
+// 6. Test Default Schedules Seeding
+console.log('6. Menguji muat jadwal kuliah default...');
+scheduleRepo.resetToDefaultSchedules(TEST_CHAT_ID);
+const seededSchedules = scheduleRepo.getAllSchedules(TEST_CHAT_ID);
+assert.strictEqual(seededSchedules.length, 9, 'Harus ada 9 jadwal default yang dimuat');
+
+// Check Fisika Dasar I on Senin 10:40 - 13:10
+const fisika = seededSchedules.find(s => s.course_name === 'Fisika Dasar I');
+assert.ok(fisika, 'Fisika Dasar I harus ada');
+assert.strictEqual(fisika.day, 'Senin');
+assert.strictEqual(fisika.start_time, '10:40');
+assert.strictEqual(fisika.end_time, '13:10');
+assert.strictEqual(fisika.room, 'C.807 VA');
+
+// Check Kalkulus I (2 sessions on Jumat)
+const kalkulus = seededSchedules.filter(s => s.course_name === 'Kalkulus I');
+assert.strictEqual(kalkulus.length, 2, 'Kalkulus I harus ada 2 sesi di hari Jumat');
+
+// Clean up
+const cleanupStmt = scheduleRepo.getAllSchedules(TEST_CHAT_ID);
+cleanupStmt.forEach(s => scheduleRepo.deleteSchedule(s.id, TEST_CHAT_ID));
+console.log('   ✅ Muat jadwal default lolos uji.');
 
 console.log('\n🎉 SEMUA PENGUJIAN BERHASIL LOLOS 100%!');

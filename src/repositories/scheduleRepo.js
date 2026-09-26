@@ -1,7 +1,32 @@
 import { db } from '../database.js';
 import { DAYS_OF_WEEK } from '../utils/dateTime.js';
+import { DEFAULT_SCHEDULES } from '../data/defaultSchedules.js';
 
 export const scheduleRepo = {
+  // Seed default schedules for a chat_id
+  seedDefaultSchedules(chatId) {
+    const cid = String(chatId);
+    for (const item of DEFAULT_SCHEDULES) {
+      this.addSchedule({
+        chatId: cid,
+        day: item.day,
+        courseName: item.courseName,
+        startTime: item.startTime,
+        endTime: item.endTime,
+        room: item.room,
+        lecturer: ''
+      });
+    }
+  },
+
+  // Reset/reload schedules to default for a chat_id
+  resetToDefaultSchedules(chatId) {
+    const cid = String(chatId);
+    const stmt = db.prepare(`DELETE FROM schedules WHERE chat_id = ?`);
+    stmt.run(cid);
+    this.seedDefaultSchedules(cid);
+  },
+
   // Add a new schedule
   addSchedule({ chatId, day, courseName, startTime, endTime, room = '', lecturer = '' }) {
     const stmt = db.prepare(`

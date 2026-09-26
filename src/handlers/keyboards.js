@@ -89,6 +89,9 @@ export const keyboards = {
         Markup.button.callback(`Waktu Peringatan (${settings.pre_class_reminder_mins}m)`, 'set_preclass_mins')
       ],
       [
+        Markup.button.callback('🔄 Muat/Reset Jadwal Kuliah Default', 'confirm_reset_default')
+      ],
+      [
         Markup.button.callback('⬅️ Tutup Menu Pengaturan', 'close_settings')
       ]
     ]);
