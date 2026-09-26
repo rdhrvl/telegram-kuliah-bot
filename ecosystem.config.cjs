@@ -2,6 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'telegram-kuliah-bot',
+      cwd: __dirname,
       script: './src/index.js',
       watch: false,
       restart_delay: 5000,
