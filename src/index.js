@@ -225,12 +225,15 @@ bot.on('text', async (ctx, next) => {
 });
 
 // Launch bot and start reminder scheduler
-bot.launch().then(() => {
-  console.log('🚀 Bot Telegram Jadwal Kuliah berhasil berjalan!');
+try {
+  const me = await bot.telegram.getMe();
+  console.log(`🚀 Bot Telegram @${me.username} berhasil berjalan!`);
+  bot.launch();
   reminderService.start(bot);
-}).catch((err) => {
+  console.log('⏰ Reminder service aktif.');
+} catch (err) {
   console.error('Gagal menjalankan bot Telegram:', err);
-});
+}
 
 // Graceful stop
 process.once('SIGINT', () => {
