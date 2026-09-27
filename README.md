@@ -10,6 +10,9 @@ Bot Telegram interaktif yang membantu mahasiswa mengelola jadwal perkuliahan har
   - `Jadwal Hari Ini`: Menampilkan mata kuliah hari ini.
   - `Jadwal Besok`: Persiapan mata kuliah untuk besok.
   - `Semua Jadwal`: Rangkuman seluruh jadwal kuliah mingguan (Senin - Minggu).
+- 🌐 **Tarik Jadwal dari Portal UNAS**:
+  - Sinkronisasi otomatis dari `https://portalmhs.unas.ac.id/jadwal-pribadi` menggunakan NPM & Password.
+  - Mendukung juga impor instan dengan mengirimkan file dokumen `.html` atau teks tabel jadwal ke bot.
 - ➕ **Tambah Jadwal (Create)**:
   - Wizard interaktif (Pilih Hari -> Nama Matkul -> Jam Mulai & Selesai -> Ruangan -> Dosen).
 - ✏️ **Edit Jadwal (Update)**:
