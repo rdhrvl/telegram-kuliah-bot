@@ -27,6 +27,24 @@ export const scheduleRepo = {
     this.seedDefaultSchedules(cid);
   },
 
+  // Replace all schedules with a new list
+  replaceAllSchedules(chatId, newSchedules) {
+    const cid = String(chatId);
+    const stmt = db.prepare(`DELETE FROM schedules WHERE chat_id = ?`);
+    stmt.run(cid);
+    for (const item of newSchedules) {
+      this.addSchedule({
+        chatId: cid,
+        day: item.day,
+        courseName: item.courseName,
+        startTime: item.startTime,
+        endTime: item.endTime,
+        room: item.room || '',
+        lecturer: item.lecturer || ''
+      });
+    }
+  },
+
   // Add a new schedule
   addSchedule({ chatId, day, courseName, startTime, endTime, room = '', lecturer = '' }) {
     const stmt = db.prepare(`

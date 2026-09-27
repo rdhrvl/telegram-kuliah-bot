@@ -6,9 +6,9 @@ export const keyboards = {
   mainMenu() {
     return Markup.keyboard([
       ['📅 Jadwal Hari Ini', '📆 Jadwal Besok'],
-      ['📋 Semua Jadwal', '➕ Tambah Jadwal'],
-      ['✏️ Edit Jadwal', '❌ Hapus Jadwal'],
-      ['⚙️ Pengaturan Notifikasi', 'ℹ️ Bantuan']
+      ['📋 Semua Jadwal', '🌐 Tarik Portal UNAS'],
+      ['➕ Tambah Jadwal', '✏️ Edit Jadwal'],
+      ['❌ Hapus Jadwal', '⚙️ Pengaturan Notifikasi']
     ]).resize();
   },
 

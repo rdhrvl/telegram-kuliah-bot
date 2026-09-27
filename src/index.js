@@ -6,6 +6,7 @@ import { createHandler } from './handlers/createHandler.js';
 import { editHandler } from './handlers/editHandler.js';
 import { deleteHandler } from './handlers/deleteHandler.js';
 import { settingsHandler } from './handlers/settingsHandler.js';
+import { syncHandler } from './handlers/syncHandler.js';
 import { reminderService } from './services/reminderService.js';
 import { scheduleRepo } from './repositories/scheduleRepo.js';
 
@@ -75,7 +76,8 @@ bot.help(async (ctx) => {
     `• /hariini - Lihat jadwal kuliah hari ini\n` +
     `• /besok - Lihat jadwal kuliah besok\n` +
     `• /jadwal - Lihat seluruh jadwal mingguan\n` +
-    `• /tambah - Tambah jadwal kuliah baru\n` +
+    `• /tarik_jadwal - Tarik jadwal otomatis dari portalmhs.unas.ac.id\n` +
+    `• /tambah - Tambah jadwal kuliah baru manual\n` +
     `• /edit - Ubah data jadwal yang sudah ada\n` +
     `• /hapus - Hapus jadwal kuliah\n` +
     `• /pengaturan - Atur alarm & pengingat harian\n` +
@@ -107,6 +109,11 @@ bot.command('besok', viewHandler.handleTomorrow);
 
 bot.hears('📋 Semua Jadwal', viewHandler.handleWeekly);
 bot.command(['jadwal', 'semua'], viewHandler.handleWeekly);
+
+// Portal sync commands
+bot.hears('🌐 Tarik Portal UNAS', syncHandler.start);
+bot.command(['tarik_jadwal', 'sync_portal'], syncHandler.start);
+bot.action('sync_portal_action', syncHandler.start);
 
 // Schedule CRUD commands
 bot.hears('➕ Tambah Jadwal', createHandler.start);
@@ -187,7 +194,7 @@ bot.action('close_settings', async (ctx) => {
   }
 });
 
-// Handle incoming text for active wizards (create / edit / settings)
+// Handle incoming text for active wizards (create / edit / settings / sync)
 bot.on('text', async (ctx, next) => {
   const text = ctx.message.text;
 
@@ -196,6 +203,7 @@ bot.on('text', async (ctx, next) => {
     '📅 Jadwal Hari Ini',
     '📆 Jadwal Besok',
     '📋 Semua Jadwal',
+    '🌐 Tarik Portal UNAS',
     '➕ Tambah Jadwal',
     '✏️ Edit Jadwal',
     '❌ Hapus Jadwal',
@@ -204,6 +212,10 @@ bot.on('text', async (ctx, next) => {
   ].includes(text)) {
     return next();
   }
+
+  // Check sync portal wizard
+  const handledSync = await syncHandler.processStep(ctx, text);
+  if (handledSync) return;
 
   // Check create wizard
   const handledCreate = await createHandler.processStep(ctx, text);
@@ -217,11 +229,46 @@ bot.on('text', async (ctx, next) => {
   const handledSettings = await settingsHandler.processStep(ctx, text);
   if (handledSettings) return;
 
+  // Check if text is direct HTML table from portal
+  if (text.includes('<table') || text.includes('id="example"') || (text.includes('<td>') && text.includes('Senin'))) {
+    const handledHtml = await syncHandler.handleDirectHtml(ctx, text);
+    if (handledHtml) return;
+  }
+
   // Default fallback
   await ctx.reply(
     `Perintah tidak dikenali. Silakan gunakan menu tombol di bawah atau ketik /help.`,
     keyboards.mainMenu()
   );
+});
+
+// Handle document / file upload (e.g. user sends exported .html file from portal)
+bot.on('document', async (ctx) => {
+  const doc = ctx.message.document;
+  if (!doc) return;
+
+  const fileName = doc.file_name || '';
+  const mimeType = doc.mime_type || '';
+
+  if (fileName.endsWith('.html') || fileName.endsWith('.htm') || mimeType.includes('html') || fileName.endsWith('.txt')) {
+    try {
+      const fileLink = await ctx.telegram.getFileLink(doc.file_id);
+      const res = await fetch(fileLink.href);
+      const content = await res.text();
+
+      const handled = await syncHandler.handleDirectHtml(ctx, content);
+      if (!handled) {
+        await ctx.reply(
+          '⚠️ File HTML berhasil dibaca, namun tabel jadwal perkuliahan tidak ditemukan.\n' +
+          'Pastikan file HTML yang Anda simpan berasal dari halaman <code>jadwal-pribadi</code> portal mahasiswa.',
+          { parse_mode: 'HTML' }
+        );
+      }
+    } catch (err) {
+      console.error('Error reading uploaded HTML file:', err);
+      await ctx.reply(`⚠️ Gagal memproses file: ${err.message}`);
+    }
+  }
 });
 
 // Launch bot and start reminder scheduler
