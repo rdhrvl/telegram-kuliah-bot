@@ -34,6 +34,13 @@ db.exec(`
     timezone TEXT DEFAULT 'Asia/Jakarta'
   );
 
+  CREATE TABLE IF NOT EXISTS portal_credentials (
+    chat_id TEXT PRIMARY KEY,
+    npm TEXT NOT NULL,
+    password_enc TEXT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS reminder_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     schedule_id INTEGER,

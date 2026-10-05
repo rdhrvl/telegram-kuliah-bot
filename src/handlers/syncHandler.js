@@ -1,11 +1,93 @@
 import { keyboards } from './keyboards.js';
 import { scheduleRepo } from '../repositories/scheduleRepo.js';
+import { credentialRepo } from '../repositories/credentialRepo.js';
 import { fetchJadwalFromPortal, parseScheduleTable } from '../services/portalService.js';
 import { formatWeeklyScheduleList } from '../utils/formatter.js';
 
+// Login to portal, scrape schedule and save it. Saves credentials on success.
+async function runSync(ctx, npm, password, { fromSaved = false } = {}) {
+  const statusMsg = await ctx.reply(
+    `⏳ <b>Sedang menghubungkan ke portalmhs.unas.ac.id...</b>\n` +
+    (fromSaved ? `👤 Menggunakan akun tersimpan: <code>${npm}</code>\n` : '') +
+    `<i>Memverifikasi login dan menarik tabel jadwal kuliah...</i>`,
+    { parse_mode: 'HTML' }
+  );
+
+  const edit = (text) => ctx.telegram.editMessageText(
+    ctx.chat.id, statusMsg.message_id, null, text, { parse_mode: 'HTML' }
+  );
+
+  const result = await fetchJadwalFromPortal(npm, password);
+
+  if (!result.success) {
+    const tips = fromSaved
+      ? `💡 <i>Login dengan akun tersimpan gagal. Jika password portal Anda sudah berubah, ketik /ganti_akun untuk memasukkan NPM & password baru.</i>`
+      : `💡 <i>Tips: Pastikan NPM dan Password yang Anda masukkan sesuai dengan akun di portalmhs.unas.ac.id. Ketik /tarik_jadwal untuk mencoba lagi.</i>`;
+    await edit(`❌ <b>Gagal Menarik Jadwal dari Portal:</b>\n\n${result.error}\n\n${tips}`);
+    return;
+  }
+
+  // Login succeeded -> remember credentials so user doesn't need to re-enter them
+  const isNewSave = !fromSaved;
+  if (isNewSave) {
+    credentialRepo.save(ctx.chat.id, npm, password);
+  }
+  const savedNote = isNewSave
+    ? `\n\n🔐 <i>NPM & password Anda telah disimpan (terenkripsi). Selanjutnya cukup ketik /tarik_jadwal tanpa login ulang. Ketik /hapus_akun untuk menghapusnya.</i>`
+    : '';
+
+  if (!result.schedules || result.schedules.length === 0) {
+    await edit(`ℹ️ <b>Login Berhasil</b>, namun tidak ditemukan data jadwal perkuliahan pada akun Anda di portal.` + savedNote);
+    return;
+  }
+
+  scheduleRepo.replaceAllSchedules(ctx.chat.id, result.schedules);
+  const saved = scheduleRepo.getAllSchedules(ctx.chat.id);
+
+  await edit(
+    `🎉 <b>Berhasil Menarik ${saved.length} Jadwal Perkuliahan dari Portal!</b>\n\n` +
+    formatWeeklyScheduleList(saved) +
+    `\n\n✅ <i>Seluruh jadwal di atas sudah aktif di pengingat harian & alarm sebelum kelas.</i>` +
+    savedNote
+  );
+}
+
 export const syncHandler = {
-  // Start the portal sync wizard
+  // Start the portal sync: use saved credentials if available, otherwise ask for them
   async start(ctx) {
+    if (ctx.callbackQuery) {
+      await ctx.answerCbQuery().catch(() => {});
+    }
+
+    const creds = credentialRepo.get(ctx.chat.id);
+    if (creds) {
+      ctx.session = null;
+      await runSync(ctx, creds.npm, creds.password, { fromSaved: true });
+      return;
+    }
+
+    await syncHandler.askCredentials(ctx);
+  },
+
+  // Force re-entering credentials (/ganti_akun)
+  async changeAccount(ctx) {
+    await syncHandler.askCredentials(ctx);
+  },
+
+  // Delete saved credentials (/hapus_akun)
+  async deleteAccount(ctx) {
+    ctx.session = null;
+    const removed = credentialRepo.remove(ctx.chat.id);
+    await ctx.reply(
+      removed
+        ? '🗑️ <b>Akun portal tersimpan berhasil dihapus.</b>\nAnda perlu memasukkan NPM & password lagi saat /tarik_jadwal berikutnya.'
+        : 'ℹ️ Tidak ada akun portal yang tersimpan.',
+      { parse_mode: 'HTML', ...keyboards.mainMenu() }
+    );
+  },
+
+  // Start the NPM/password input wizard
+  async askCredentials(ctx) {
     ctx.session = {
       action: 'sync_portal',
       step: 'INPUT_NPM',
@@ -64,56 +146,8 @@ export const syncHandler = {
       // Clear session immediately
       ctx.session = null;
 
-      // Send loading status
-      const statusMsg = await ctx.reply(
-        `⏳ <b>Sedang menghubungkan ke portalmhs.unas.ac.id...</b>\n` +
-        `<i>Memverifikasi login dan menarik tabel jadwal kuliah...</i>`,
-        { parse_mode: 'HTML' }
-      );
-
-      // Perform login and scraping
-      const result = await fetchJadwalFromPortal(npm, password);
-
-      if (!result.success) {
-        await ctx.telegram.editMessageText(
-          ctx.chat.id,
-          statusMsg.message_id,
-          null,
-          `❌ <b>Gagal Menarik Jadwal dari Portal:</b>\n\n` +
-          `${result.error}\n\n` +
-          `💡 <i>Tips: Pastikan NPM dan Password yang Anda masukkan sesuai dengan akun di portalmhs.unas.ac.id. Ketik /tarik_jadwal untuk mencoba lagi.</i>`,
-          { parse_mode: 'HTML' }
-        );
-        return true;
-      }
-
-      if (!result.schedules || result.schedules.length === 0) {
-        await ctx.telegram.editMessageText(
-          ctx.chat.id,
-          statusMsg.message_id,
-          null,
-          `ℹ️ <b>Login Berhasil</b>, namun tidak ditemukan data jadwal perkuliahan pada akun Anda di portal.`,
-          { parse_mode: 'HTML' }
-        );
-        return true;
-      }
-
-      // Save schedules to database
-      scheduleRepo.replaceAllSchedules(ctx.chat.id, result.schedules);
-      const saved = scheduleRepo.getAllSchedules(ctx.chat.id);
-
-      const summaryText = `🎉 <b>Berhasil Menarik ${saved.length} Jadwal Perkuliahan dari Portal!</b>\n\n` +
-        formatWeeklyScheduleList(saved) +
-        `\n\n✅ <i>Seluruh jadwal di atas sudah aktif di pengingat harian & alarm sebelum kelas.</i>`;
-
-      await ctx.telegram.editMessageText(
-        ctx.chat.id,
-        statusMsg.message_id,
-        null,
-        summaryText,
-        { parse_mode: 'HTML' }
-      );
-
+      // Perform login, scraping and save credentials on success
+      await runSync(ctx, npm, password);
       return true;
     }
 

@@ -77,6 +77,8 @@ bot.help(async (ctx) => {
     `• /besok - Lihat jadwal kuliah besok\n` +
     `• /jadwal - Lihat seluruh jadwal mingguan\n` +
     `• /tarik_jadwal - Tarik jadwal otomatis dari portalmhs.unas.ac.id\n` +
+    `• /ganti_akun - Ganti NPM & password portal yang tersimpan\n` +
+    `• /hapus_akun - Hapus NPM & password portal yang tersimpan\n` +
     `• /tambah - Tambah jadwal kuliah baru manual\n` +
     `• /edit - Ubah data jadwal yang sudah ada\n` +
     `• /hapus - Hapus jadwal kuliah\n` +
@@ -114,6 +116,8 @@ bot.command(['jadwal', 'semua'], viewHandler.handleWeekly);
 bot.hears('🌐 Tarik Portal UNAS', syncHandler.start);
 bot.command(['tarik_jadwal', 'sync_portal'], syncHandler.start);
 bot.action('sync_portal_action', syncHandler.start);
+bot.command('ganti_akun', syncHandler.changeAccount);
+bot.command('hapus_akun', syncHandler.deleteAccount);
 
 // Schedule CRUD commands
 bot.hears('➕ Tambah Jadwal', createHandler.start);
